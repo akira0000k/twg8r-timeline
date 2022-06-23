@@ -339,18 +339,6 @@ func TweetDictionarySlice(t *g8rv2.TweetRaw) (s []*g8rv2.TweetDictionary) {
 //  	PreviousToken string `json:"previous_token"`
 // }
 
-// // TweetDictionary is a struct of a tweet and all of the reference objects
-// type TweetDictionary struct {
-//  	Tweet            TweetObj
-//  	Author           *UserObj
-//  	InReplyUser      *UserObj
-//  	Place            *PlaceObj
-//  	AttachmentPolls  []*PollObj
-//  	AttachmentMedia  []*MediaObj
-//  	Mentions         []*TweetMention
-//  	ReferencedTweets []*TweetReference
-// }
-
 // // TweetDictionaries create a map of tweet dictionaries from the raw tweet response
 // func (t *TweetRaw) TweetDictionaries() map[string]*TweetDictionary {
 //  	if t.dictionaries != nil {

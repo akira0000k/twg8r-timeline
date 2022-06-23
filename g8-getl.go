@@ -386,8 +386,7 @@ func getReverseTLs(userid string, count int, loops int, waitsecond int64, since 
 		countlim = false
 	}
 	var sinceid = since
-	var zerocount int = 0
-	const maxzero int = 1
+	var delsince twidt = 0
 	next_since = sinceid //default: same sinceid
 	if sinceid <= 0 {
 		fmt.Fprintf(os.Stderr, "since=%d. get %d tweet\n", sinceid, onetimemin)
@@ -398,14 +397,14 @@ func getReverseTLs(userid string, count int, loops int, waitsecond int64, since 
 		}
 		if c == 0 {
 			fmt.Fprintln(os.Stderr, "Not 1 record available")
-			os.Exit(2)
+			sleep(waitsecond)
+		} else {
+			firstid, lastid, _ := printTL(tweets, 0, reverse)
+			next_max = firstid
+			next_since = lastid
+			sinceid = lastid
+			sleep(5)
 		}
- 
-		firstid, lastid, _ := printTL(tweets, 0, reverse)
-		next_max = firstid
-		next_since = lastid
-		sinceid = lastid
-		sleep(5)
 	} else {
 		fmt.Fprintf(os.Stderr, "since=%d. start from this record.\n", sinceid)
 	}
@@ -414,15 +413,17 @@ func getReverseTLs(userid string, count int, loops int, waitsecond int64, since 
  
 		c := len(tweets)
 		if c > 0 {
-			zerocount = 0
 			minid := str2twid(tweets[len(tweets) - 1].Tweet.ID)
 			if minid <= sinceid {
 				//指定ツイートまで取れたのでダブらないように削除する
 				tweets = tweets[: len(tweets) - 1]
 				c = len(tweets)
 			} else {
-				//gap
-				fmt.Fprintf(os.Stderr, "Gap exists\n")
+				if delsince == 0 {
+					//gap
+					fmt.Fprintf(os.Stderr, "Gap exists. since_id=%d deleted?\n", sinceid)
+					delsince = sinceid
+				}
 			}
 			if c > 0 {
 				firstid, lastid, nout := printTL(tweets, 0, reverse)
@@ -431,17 +432,17 @@ func getReverseTLs(userid string, count int, loops int, waitsecond int64, since 
 				}
 				next_since = lastid
 				sinceid = lastid
+				delsince = 0
 				if countlim {
 					count -= nout
 					if count <= 0 { break }
 				}
 			}
 		} else {
-			//accident. no response
-			zerocount += 1
-			if zerocount == maxzero {
-				exitcode = 1
-				break
+			if delsince == 0 {
+				//gap
+				fmt.Fprintf(os.Stderr, "Gap exists. since_id=%d deleted?\n", sinceid)
+				delsince = sinceid
 			}
 		}
 		if loops > 0 && i >= loops {
@@ -456,10 +457,14 @@ func getTLsince(userid string, since twidt) (tweets []*g8rv2.TweetDictionary) {
 	totalc := 0
 	tweets = []*g8rv2.TweetDictionary{}
 	var max_id twidt = 0
+	until := since
+	if until > 0 {
+		until -= 1
+	}
 	twapi.rewindQuery()
 	for i := 0; ; i++ {
  
-		twts, c, last, err := twapi.getTL(userid, onetimemax, max_id, since - 1)
+		twts, c, last, err := twapi.getTL(userid, onetimemax, max_id, until)
 		if err != nil{
 			print_id()
 			os.Exit(2)
@@ -471,14 +476,18 @@ func getTLsince(userid string, since twidt) (tweets []*g8rv2.TweetDictionary) {
 			
 			tweets = append(tweets, twts...)
 			
-			if lastid <= since {
+			if since > 0 {
+				if lastid <= since {
+					break
+				}
+				max_id = lastid - 1
+			} else {
 				break
 			}
-			max_id = lastid - 1
 		}
 		if last {
 			if totalc == 0 {
-				fmt.Fprintln(os.Stderr, "last record. break")
+				//fmt.Fprintln(os.Stderr, "last record. break")
 			}
 			break
 		}
